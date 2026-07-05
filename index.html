@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Show StopWatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#130923;
+    --bg-deep:#0b0515;
+    --bg-elevated:#1f1136;
+    --bg-elevated-2:#2a1748;
+    --line:#3a2360;
+    --white:#f7f4fb;
+    --muted:#b3a0cf;
+    --muted-dim:#7a689a;
+    --green:#4dffa3;
+    --green-dim:#1f6b4a;
+    --blue:#5b8fff;
+    --amber:#ffb648;
+    --red:#ff5c6c;
+    --purple:#a855f7;
+    --font-display:'Oswald', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 50% -10%, #2d1852 0%, var(--bg) 45%, var(--bg-deep) 100%);
+    color:var(--white);
+    font-family:var(--font-body);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior:none;
+  }
+  #app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    padding-bottom:24px;
+  }
+  button{font-family:var(--font-body);border:none;cursor:pointer;background:none;color:inherit;}
+  input,select{font-family:var(--font-body);}
+  ::selection{background:var(--purple);color:white;}
+  :focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+
+  /* ---------- Top bar / progress dots ---------- */
+  .topbar{
+    display:flex;align-items:center;justify-content:center;
+    gap:6px;padding:18px 16px 10px;position:relative;
+  }
+  .brand{
+    position:absolute; left:16px; top:16px;
+    font-family:var(--font-display);
+    font-size:12px; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--muted-dim);
+  }
+  .dots{display:flex;gap:5px;align-items:center;margin-top:6px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--line);transition:all .3s;}
+  .dot.act{border-radius:2px;}
+  .dot.done{background:var(--muted-dim);}
+  .dot.current{background:var(--green);box-shadow:0 0 8px var(--green);width:9px;height:9px;}
+
+  /* ---------- Show stop pill ---------- */
+  .stop-pill{
+    position:absolute; top:14px; right:16px;
+    font-family:var(--font-display);
+    font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+    padding:7px 12px; border-radius:20px;
+    border:1px solid var(--red); color:var(--red);
+    display:flex; align-items:center; gap:6px; z-index:20;
+    background:rgba(255,92,108,0.06);
+  }
+  .stop-pill.active{background:var(--red);color:var(--bg-deep);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,92,108,.5);}50%{box-shadow:0 0 0 8px rgba(255,92,108,0);}}
+
+  /* ---------- Sections ---------- */
+  .screen{flex:1;display:flex;flex-direction:column;padding:0 20px;}
+  h1.marquee{
+    font-family:var(--font-display); font-weight:600; letter-spacing:.02em;
+    font-size:26px; margin:6px 0 4px; text-align:center;
+  }
+  .subtitle{color:var(--muted); font-size:13px; text-align:center; margin-bottom:22px;}
+  .tag{
+    display:inline-block; font-family:var(--font-display); font-size:11px;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted-dim);
+    text-align:center; width:100%; margin-bottom:2px;
+  }
+
+  /* ---------- Setup screen ---------- */
+  .struct-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+  .struct-row{
+    display:flex; align-items:center; gap:8px;
+    background:var(--bg-elevated); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px;
+  }
+  .struct-row .badge{
+    font-family:var(--font-mono); font-size:10px; letter-spacing:.05em;
+    padding:4px 7px; border-radius:5px; text-transform:uppercase; flex-shrink:0;
+  }
+  .struct-row.act .badge{background:rgba(91,143,255,.15); color:var(--blue);}
+  .struct-row.interval .badge{background:rgba(255,182,72,.15); color:var(--amber);}
+  .struct-row input[type=text]{
+    flex:1; background:none; border:none; color:var(--white); font-size:14px;
+    min-width:0; padding:4px 0;
+  }
+  .struct-row .dur{
+    width:52px; background:var(--bg-deep); border:1px solid var(--line); border-radius:6px;
+    color:var(--white); font-family:var(--font-mono); font-size:12px; text-align:center; padding:5px 2px;
+  }
+  .struct-row .minlabel{font-size:10px;color:var(--muted-dim);}
+  .rowbtns{display:flex; gap:2px; flex-shrink:0;}
+  .rowbtns button{color:var(--muted-dim); font-size:14px; padding:4px 6px; border-radius:5px;}
+  .rowbtns button:hover{color:var(--white); background:var(--bg-elevated-2);}
+  .add-row-btns{display:flex; gap:8px; margin-bottom:20px;}
+  .add-row-btns button{
+    flex:1; border:1px dashed var(--line); border-radius:10px; padding:12px;
+    font-family:var(--font-display); font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted); transition:.15s;
+  }
+  .add-row-btns button:hover{border-color:var(--blue); color:var(--blue);}
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    font-family:var(--font-display); letter-spacing:.04em; text-transform:uppercase;
+    font-size:14px; padding:16px; border-radius:12px; width:100%;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:transform .1s, box-shadow .15s;
+  }
+  .btn:active{transform:scale(0.98);}
+  .btn-primary{background:var(--blue); color:#0b0515; box-shadow:0 4px 20px rgba(91,143,255,.25);}
+  .btn-amber{background:var(--amber); color:#2a1608; box-shadow:0 4px 24px rgba(255,182,72,.3);}
+  .btn-outline{background:transparent; border:1.5px solid var(--blue); color:var(--blue);}
+  .btn-outline.amber{border-color:var(--amber); color:var(--amber);}
+  .btn-outline.muted{border-color:var(--line); color:var(--muted);}
+  .btn-ghost{color:var(--muted); font-size:12px; padding:10px; text-transform:none; letter-spacing:0; font-family:var(--font-body);}
+  .btn[disabled]{opacity:.35; cursor:not-allowed;}
+  .btn-row{display:flex; gap:10px;}
+
+  /* ---------- Pre-show ---------- */
+  .call-grid{display:flex; flex-direction:column; gap:10px; margin-bottom:24px;}
+  .call-card{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--bg-elevated); border:1px solid var(--line); border-radius:12px; padding:16px;
+  }
+  .call-card .label{font-family:var(--font-display); font-size:14px; letter-spacing:.03em;}
+  .call-card .time{font-family:var(--font-mono); font-size:14px; color:var(--green);}
+  .call-card button{
+    font-family:var(--font-display); font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    background:var(--bg-elevated-2); padding:8px 12px; border-radius:8px; color:var(--white);
+  }
+  .call-card button:hover{background:var(--blue); color:var(--bg-deep);}
+
+  /* ---------- Running screen ---------- */
+  .stage{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px 0 10px; text-align:center;}
+  .act-name{font-family:var(--font-display); font-size:22px; letter-spacing:.02em; margin-bottom:2px;}
+  .act-sub{font-size:12px; color:var(--muted-dim); text-transform:uppercase; letter-spacing:.1em; margin-bottom:22px;}
+  .big-time{
+    font-family:var(--font-mono); font-weight:700; font-size:64px; line-height:1;
+    color:var(--white); letter-spacing:.01em; text-shadow:0 0 30px rgba(247,244,251,.15);
+    font-variant-numeric:tabular-nums;
+  }
+  .big-time.stopped{color:var(--red); text-shadow:0 0 30px rgba(255,92,108,.35);}
+  .big-time.remaining{color:var(--green); text-shadow:0 0 30px rgba(77,255,163,.3);}
+  .big-time.overrun{color:var(--red); text-shadow:0 0 30px rgba(255,92,108,.35);}
+  .time-caption{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted-dim); margin-top:6px;}
+  .secondary-time{
+    margin-top:20px; display:flex; gap:26px; justify-content:center;
+  }
+  .secondary-time .item{text-align:center;}
+  .secondary-time .val{font-family:var(--font-mono); font-size:20px; color:var(--muted);}
+  .secondary-time .cap{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted-dim); margin-top:2px;}
+
+  .stopped-banner{
+    margin-top:16px; font-family:var(--font-display); font-size:12px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--red); background:rgba(255,92,108,.1);
+    border:1px solid var(--red); border-radius:20px; padding:6px 14px;
+  }
+
+  /* timers */
+  .timers-panel{width:100%; margin-top:18px;}
+  .timer-chip{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--bg-elevated); border:1px solid var(--line); border-radius:10px;
+    padding:10px 14px; margin-bottom:6px;
+  }
+  .timer-chip .tname{font-size:13px; color:var(--muted);}
+  .timer-chip .tval{font-family:var(--font-mono); font-size:14px; color:var(--purple);}
+  .timer-chip button{font-size:11px; color:var(--muted-dim); text-transform:uppercase; letter-spacing:.06em; padding:4px 8px;}
+  .timer-chip button:hover{color:var(--red);}
+
+  .action-stack{width:100%; display:flex; flex-direction:column; gap:10px; margin-top:22px;}
+
+  /* safe mode */
+  .safe-toggle{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--bg-elevated); border:1px solid var(--line); border-radius:12px;
+    padding:12px 16px; width:100%; margin-top:14px;
+  }
+  .safe-toggle .lbl{font-size:13px;}
+  .safe-toggle .lbl .sub{display:block; font-size:11px; color:var(--muted-dim); margin-top:1px;}
+  .switch{width:40px; height:22px; border-radius:20px; background:var(--line); position:relative; flex-shrink:0; transition:.2s;}
+  .switch.on{background:var(--amber);}
+  .switch::after{content:'';position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:var(--white); transition:.2s;}
+  .switch.on::after{left:20px;}
+  .locked-note{font-size:11px; color:var(--amber); text-align:center; margin-top:8px;}
+
+  /* calls list within interval */
+  .calls-panel{width:100%; margin-top:16px; display:flex; flex-direction:column; gap:6px;}
+  .call-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:9px 12px; border-radius:8px; font-size:12px;
+    border:1px solid var(--line); color:var(--muted-dim);
+  }
+  .call-row.next{border-color:var(--green); color:var(--green); background:rgba(77,255,163,.06);}
+  .call-row.passed{opacity:.4; text-decoration:line-through;}
+  .call-row .cname{font-family:var(--font-display); letter-spacing:.04em; text-transform:uppercase; font-size:11px;}
+  .call-row .ctime{font-family:var(--font-mono);}
+
+  /* ---------- Modal ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(6,3,14,.75); backdrop-filter:blur(3px);
+    display:flex; align-items:flex-end; justify-content:center; z-index:50;
+  }
+  .modal{
+    background:var(--bg-elevated); border:1px solid var(--line); border-radius:20px 20px 0 0;
+    width:100%; max-width:480px; padding:22px 20px 28px; max-height:82vh; overflow-y:auto;
+  }
+  .modal-handle{width:40px; height:4px; background:var(--line); border-radius:3px; margin:0 auto 16px;}
+  .modal h2{font-family:var(--font-display); font-size:18px; margin:0 0 16px; letter-spacing:.02em;}
+  .report-block{margin-bottom:18px;}
+  .report-block .rb-title{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted-dim); margin-bottom:8px;}
+  .report-line{
+    display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line);
+    font-size:13px;
+  }
+  .report-line .rl-name{color:var(--white);}
+  .report-line .rl-time{font-family:var(--font-mono); color:var(--muted);}
+  .totals-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px;}
+  .total-card{background:var(--bg-elevated-2); border-radius:10px; padding:12px;}
+  .total-card .tv{font-family:var(--font-mono); font-size:19px; color:var(--green);}
+  .total-card .tl{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted-dim); margin-top:3px;}
+  .modal-actions{display:flex; gap:10px; margin-top:6px;}
+  .close-x{position:absolute; top:16px; right:20px; color:var(--muted-dim); font-size:20px;}
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--white); color:var(--bg-deep); padding:10px 18px; border-radius:20px;
+    font-size:13px; z-index:100; opacity:0; transition:opacity .25s; pointer-events:none;
+  }
+  .toast.show{opacity:1;}
+
+  .history-item{
+    background:var(--bg-elevated); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;
+    cursor:pointer;
+  }
+  .history-item:hover{border-color:var(--blue);}
+  .history-item .hd{font-size:13px;}
+  .history-item .hd .sub{font-size:11px; color:var(--muted-dim); margin-top:2px;}
+  .history-item .harrow{color:var(--muted-dim);}
+  .empty-note{color:var(--muted-dim); font-size:13px; text-align:center; padding:20px 0;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= STATE ================= */
+const STORAGE_KEY = 'showstopwatch_history_v1';
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function nowMs(){ return Date.now(); }
+
+let state = {
+  screen: 'setup',            // setup | preshow | running | report | history
+  structure: [
+    { id: uid(), type:'act', name:'Act 1' },
+    { id: uid(), type:'interval', name:'Interval', minutes:20 },
+    { id: uid(), type:'act', name:'Act 2' },
+  ],
+  currentIndex: -1,
+  houseOpen: null,
+  clearance: null,
+  events: [],                 // one per structure item once reached: {start,end,stops:[{start,end}],timers:[{id,name,start,end}]}
+  stopActive: false,
+  stopStart: null,
+  safeMode: false,
+  safeUnlocked: false,
+  beginnersOffsetMin: 2,
+  fiveOffsetMin: 5,
+  rounding: 0,                // 0 = off, 1/5 = minutes
+  showModal: null,            // null | 'preview'
+  finishedAt: null,
+};
+
+let tickHandle = null;
+
+function fmtClock(totalSeconds, forceSign){
+  const sign = totalSeconds < 0 ? '-' : (forceSign ? '+' : '');
+  const s = Math.abs(Math.round(totalSeconds));
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  const pad = n => String(n).padStart(2,'0');
+  return h>0 ? `${sign}${h}:${pad(m)}:${pad(sec)}` : `${sign}${pad(m)}:${pad(sec)}`;
+}
+function fmtWallTime(ms){
+  if(!ms) return '—';
+  const d = new Date(ms);
+  return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+function roundSeconds(sec){
+  if(!state.rounding) return sec;
+  const stepSec = state.rounding*60;
+  return Math.round(sec/stepSec)*stepSec;
+}
+
+/* current event helpers */
+function currentEvent(){ return state.events[state.currentIndex] || null; }
+function currentItem(){ return state.structure[state.currentIndex] || null; }
+
+function stopDurationSoFar(ev){
+  if(!ev) return 0;
+  let total = 0;
+  ev.stops.forEach(s => { total += ((s.end ?? nowMs()) - s.start); });
+  return total/1000;
+}
+
+function elapsedForCurrent(){
+  const ev = currentEvent();
+  if(!ev) return 0;
+  const end = ev.end ?? nowMs();
+  const raw = (end - ev.start)/1000;
+  return raw - stopDurationSoFar(ev);
+}
+
+/* ================= ACTIONS ================= */
+function addRow(type){
+  state.structure.push({
+    id: uid(), type,
+    name: type==='act' ? `Act ${state.structure.filter(r=>r.type==='act').length+1}` : `Interval`,
+    minutes: type==='interval' ? 15 : undefined
+  });
+  render();
+}
+function removeRow(id){
+  state.structure = state.structure.filter(r=>r.id!==id);
+  render();
+}
+function moveRow(id, dir){
+  const i = state.structure.findIndex(r=>r.id===id);
+  const j = i+dir;
+  if(j<0 || j>=state.structure.length) return;
+  [state.structure[i], state.structure[j]] = [state.structure[j], state.structure[i]];
+  render();
+}
+function updateRow(id, field, value){
+  const row = state.structure.find(r=>r.id===id);
+  if(row) row[field] = field==='minutes' ? Math.max(1, parseInt(value)||1) : value;
+}
+
+function goToPreshow(){
+  if(state.structure.length===0){ showToast('Add at least one act first'); return; }
+  state.screen = 'preshow';
+  render();
+}
+function markHouseOpen(){ state.houseOpen = nowMs(); render(); }
+function markClearance(){ state.clearance = nowMs(); render(); }
+
+function startShowProper(){
+  state.currentIndex = 0;
+  startCurrentEvent();
+  state.screen = 'running';
+  render();
+}
+function startCurrentEvent(){
+  state.events[state.currentIndex] = { start: nowMs(), end:null, stops:[], timers:[] };
+  state.safeUnlocked = false;
+}
+
+function advance(){
+  const ev = currentEvent();
+  if(ev && !ev.end) ev.end = nowMs();
+  if(state.stopActive){ endShowStop(); }
+  if(state.currentIndex >= state.structure.length - 1){
+    state.finishedAt = nowMs();
+    state.screen = 'report';
+    render();
+    return;
+  }
+  state.currentIndex += 1;
+  startCurrentEvent();
+  render();
+}
+
+function toggleShowStop(){
+  if(state.stopActive){ endShowStop(); } else { startShowStop(); }
+  render();
+}
+function startShowStop(){
+  const ev = currentEvent();
+  if(!ev) return;
+  ev.stops.push({ start: nowMs(), end:null });
+  state.stopActive = true;
+}
+function endShowStop(){
+  const ev = currentEvent();
+  if(!ev) return;
+  const open = ev.stops.find(s=>s.end===null);
+  if(open) open.end = nowMs();
+  state.stopActive = false;
+}
+
+function startTimer(){
+  const ev = currentEvent();
+  if(!ev) return;
+  const n = ev.timers.length+1;
+  ev.timers.push({ id:uid(), name:`Timer ${n}`, start: nowMs(), end:null });
+  render();
+}
+function stopTimer(id){
+  const ev = currentEvent();
+  if(!ev) return;
+  const t = ev.timers.find(t=>t.id===id);
+  if(t) t.end = nowMs();
+  render();
+}
+function renameTimer(id, name){
+  const ev = currentEvent();
+  if(!ev) return;
+  const t = ev.timers.find(t=>t.id===id);
+  if(t) t.name = name;
+}
+
+function toggleSafeMode(){
+  state.safeMode = !state.safeMode;
+  if(!state.safeMode) state.safeUnlocked = true;
+  render();
+}
+function unlockSafe(){
+  state.safeUnlocked = true;
+  render();
+}
+
+function openPreview(){ state.showModal='preview'; render(); }
+function closeModal(){ state.showModal=null; render(); }
+
+/* ---- report / totals ---- */
+function computeTotals(){
+  let running = 0, playing = 0, intervalTime = 0, stopTime = 0;
+  const start = state.clearance || state.houseOpen || (state.events[0] && state.events[0].start) || nowMs();
+  const lastEv = state.events[state.events.length-1];
+  const end = (lastEv && lastEv.end) || nowMs();
+  running = (end - start)/1000;
+
+  state.structure.forEach((item, i) => {
+    const ev = state.events[i];
+    if(!ev) return;
+    const evEnd = ev.end ?? nowMs();
+    const dur = (evEnd - ev.start)/1000;
+    const stops = stopDurationSoFar(ev);
+    stopTime += stops;
+    if(item.type==='act'){ playing += (dur - stops); }
+    else { intervalTime += (dur - stops); }
+  });
+  return {
+    running: roundSeconds(running),
+    playing: roundSeconds(playing),
+    intervalTime: roundSeconds(intervalTime),
+    stopTime: roundSeconds(stopTime),
+  };
+}
+
+function buildReportText(){
+  const t = computeTotals();
+  let lines = [];
+  lines.push(`SHOW REPORT — ${new Date(state.finishedAt || nowMs()).toLocaleDateString()}`);
+  lines.push('');
+  if(state.houseOpen) lines.push(`House Open: ${fmtWallTime(state.houseOpen)}`);
+  if(state.clearance) lines.push(`Clearance: ${fmtWallTime(state.clearance)}`);
+  lines.push('');
+  state.structure.forEach((item,i)=>{
+    const ev = state.events[i];
+    if(!ev) return;
+    const dur = ((ev.end??nowMs())-ev.start)/1000 - stopDurationSoFar(ev);
+    lines.push(`${item.name}: ${fmtWallTime(ev.start)} – ${ev.end?fmtWallTime(ev.end):'—'}  (${fmtClock(roundSeconds(dur))})`);
+    ev.timers.forEach(tm=>{
+      const td = ((tm.end??nowMs())-tm.start)/1000;
+      lines.push(`   • ${tm.name}: ${fmtClock(td)}`);
+    });
+    ev.stops.forEach(s=>{
+      const sd = ((s.end??nowMs())-s.start)/1000;
+      lines.push(`   ⏸ Show Stop: ${fmtWallTime(s.start)} – ${s.end?fmtWallTime(s.end):'—'} (${fmtClock(sd)})`);
+    });
+  });
+  lines.push('');
+  lines.push(`Running Time: ${fmtClock(t.running)}`);
+  lines.push(`Playing Time: ${fmtClock(t.playing)}`);
+  lines.push(`Interval Time: ${fmtClock(t.intervalTime)}`);
+  if(t.stopTime>0) lines.push(`Show Stop Time: ${fmtClock(t.stopTime)}`);
+  return lines.join('\n');
+}
+
+function copyReport(){
+  const text = buildReportText();
+  navigator.clipboard?.writeText(text).then(()=>showToast('Report copied')).catch(()=>showToast('Could not copy'));
+}
+function shareReport(){
+  const text = buildReportText();
+  if(navigator.share){
+    navigator.share({ title:'Show Report', text }).catch(()=>{});
+  } else {
+    copyReport();
+  }
+}
+
+function saveToHistory(){
+  const t = computeTotals();
+  const record = {
+    id: uid(),
+    date: state.finishedAt || nowMs(),
+    structure: state.structure,
+    running: t.running, playing: t.playing,
+    report: buildReportText(),
+  };
+  let hist = [];
+  try{ hist = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){ hist = []; }
+  hist.unshift(record);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(hist.slice(0,30)));
+  showToast('Saved to show history');
+}
+
+function newShow(){
+  state = {
+    ...state,
+    screen:'setup', currentIndex:-1, houseOpen:null, clearance:null,
+    events:[], stopActive:false, stopStart:null, safeUnlocked:false,
+    finishedAt:null, showModal:null,
+  };
+  render();
+}
+
+function openHistory(){ state.screen='history'; render(); }
+function backToSetup(){ state.screen='setup'; render(); }
+function viewHistoryItem(rec){
+  alert(rec.report);
+}
+
+let toastTimeout;
+function showToast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(()=>el.classList.remove('show'), 1800);
+}
+
+/* ================= RENDER ================= */
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = renderScreen();
+  attachHandlers();
+  manageTicker();
+}
+
+function progressDots(){
+  if(state.structure.length===0) return '';
+  return `<div class="dots">` + state.structure.map((item,i)=>{
+    let cls = 'dot ' + (item.type==='act'?'act':'');
+    if(i < state.currentIndex) cls += ' done';
+    if(i === state.currentIndex) cls += ' current';
+    return `<span class="${cls}" title="${item.name}"></span>`;
+  }).join('') + `</div>`;
+}
+
+function renderScreen(){
+  switch(state.screen){
+    case 'setup': return screenSetup();
+    case 'preshow': return screenPreshow();
+    case 'running': return screenRunning();
+    case 'report': return screenReport();
+    case 'history': return screenHistory();
+    default: return '';
+  }
+}
+
+function screenSetup(){
+  return `
+  <div class="topbar"><span class="brand">Show StopWatch</span></div>
+  <div class="screen">
+    <h1 class="marquee">Set the Show</h1>
+    <div class="subtitle">Build tonight's running order — as many acts and intervals as you need.</div>
+    <div class="struct-list">
+      ${state.structure.map((row,i)=>`
+        <div class="struct-row ${row.type}" data-row="${row.id}">
+          <span class="badge">${row.type}</span>
+          <input type="text" value="${escapeAttr(row.name)}" data-field="name" data-id="${row.id}">
+          ${row.type==='interval' ? `<input type="number" class="dur" min="1" value="${row.minutes}" data-field="minutes" data-id="${row.id}"><span class="minlabel">min</span>` : ''}
+          <div class="rowbtns">
+            <button data-move="-1" data-id="${row.id}" ${i===0?'disabled':''}>↑</button>
+            <button data-move="1" data-id="${row.id}" ${i===state.structure.length-1?'disabled':''}>↓</button>
+            <button data-remove="${row.id}">✕</button>
+          </div>
+        </div>
+      `).join('') || `<div class="empty-note">No acts yet — add one below.</div>`}
+    </div>
+    <div class="add-row-btns">
+      <button data-add="act">+ Act</button>
+      <button data-add="interval">+ Interval</button>
+    </div>
+    <div class="action-stack" style="margin-top:auto;">
+      <button class="btn btn-primary" data-action="goPreshow">Start Show</button>
+      <button class="btn btn-ghost" data-action="openHistory">Previous performances</button>
+    </div>
+  </div>`;
+}
+
+function screenPreshow(){
+  return `
+  <div class="topbar"><span class="brand">Show StopWatch</span></div>
+  <div class="screen">
+    <h1 class="marquee">Pre-Show</h1>
+    <div class="subtitle">Log house open and clearance, then bring up Act 1.</div>
+    <div class="call-grid">
+      <div class="call-card">
+        <div><div class="label">House Open</div></div>
+        ${state.houseOpen
+          ? `<span class="time">${fmtWallTime(state.houseOpen)}</span>`
+          : `<button data-action="houseOpen">Mark now</button>`}
+      </div>
+      <div class="call-card">
+        <div><div class="label">Clearance</div></div>
+        ${state.clearance
+          ? `<span class="time">${fmtWallTime(state.clearance)}</span>`
+          : `<button data-action="clearance">Mark now</button>`}
+      </div>
+    </div>
+    <div class="action-stack" style="margin-top:auto;">
+      <button class="btn btn-amber" data-action="startShow">Begin ${escapeAttr(state.structure[0]?.name || 'Act 1')}</button>
+      <button class="btn btn-ghost" data-action="backToSetup">← Edit show structure</button>
+    </div>
+  </div>`;
+}
+
+function screenRunning(){
+  const item = currentItem();
+  const ev = currentEvent();
+  if(!item || !ev) return screenSetup();
+  const isInterval = item.type==='interval';
+  const elapsed = elapsedForCurrent();
+  const isLast = state.currentIndex >= state.structure.length-1;
+  const nextItem = state.structure[state.currentIndex+1];
+
+  let bigTimeHtml, captionHtml, secondaryHtml, callsHtml='';
+
+  if(isInterval){
+    const totalSec = item.minutes*60;
+    const remaining = totalSec - elapsed;
+    const overrun = remaining < 0;
+    bigTimeHtml = `<div class="big-time remaining ${overrun?'overrun':''}">${fmtClock(remaining, overrun)}</div>`;
+    captionHtml = `<div class="time-caption">${overrun ? 'over time' : 'remaining'}</div>`;
+    secondaryHtml = `
+      <div class="secondary-time">
+        <div class="item"><div class="val">${fmtClock(elapsed)}</div><div class="cap">elapsed</div></div>
+        <div class="item"><div class="val">${item.minutes}:00</div><div class="cap">planned</div></div>
+      </div>`;
+    // calls
+    const beginnersAt = totalSec - state.beginnersOffsetMin*60;
+    const fiveAt = totalSec - state.fiveOffsetMin*60;
+    const calls = [
+      { name:'Five', at: fiveAt },
+      { name:'Beginners', at: beginnersAt },
+    ].sort((a,b)=>a.at-b.at);
+    callsHtml = `<div class="calls-panel">` + calls.map(c=>{
+      const passed = elapsed >= c.at;
+      const isNext = !passed && calls.every(o=>o===c || elapsed>=o.at || o.at>=c.at);
+      const untilSec = c.at - elapsed;
+      let cls = 'call-row';
+      if(passed) cls+=' passed';
+      else if(isNext) cls+=' next';
+      return `<div class="${cls}">
+        <span class="cname">${c.name} call</span>
+        <span class="ctime">${passed ? 'called' : fmtClock(Math.max(0,untilSec))}</span>
+      </div>`;
+    }).join('') + `</div>`;
+  } else {
+    bigTimeHtml = `<div class="big-time ${state.stopActive?'stopped':''}">${fmtClock(elapsed)}</div>`;
+    captionHtml = `<div class="time-caption">${state.stopActive?'show stopped':'act elapsed'}</div>`;
+    const totals = computeTotals();
+    secondaryHtml = `
+      <div class="secondary-time">
+        <div class="item"><div class="val">${fmtClock(totals.running)}</div><div class="cap">running</div></div>
+        <div class="item"><div class="val">${fmtClock(totals.playing)}</div><div class="cap">playing</div></div>
+      </div>`;
+  }
+
+  const timersHtml = (!isInterval && ev.timers.length) ? `
+    <div class="timers-panel">
+      ${ev.timers.map(t=>{
+        const td = ((t.end??nowMs())-t.start)/1000;
+        return `<div class="timer-chip">
+          <span class="tname">${escapeAttr(t.name)}</span>
+          <span class="tval">${fmtClock(td)}</span>
+          ${t.end===null ? `<button data-stoptimer="${t.id}">Stop</button>` : ''}
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  const advanceLabel = isLast ? 'End Show' : `End ${escapeAttr(item.name)} & Start ${escapeAttr(nextItem.name)}`;
+  const safeLocked = isInterval && state.safeMode && !state.safeUnlocked;
+
+  return `
+  <div class="topbar">
+    <span class="brand">Show StopWatch</span>
+    ${progressDots()}
+  </div>
+  <button class="stop-pill ${state.stopActive?'active':''}" data-action="toggleStop">${state.stopActive?'● Resume Show':'Show Stop'}</button>
+  <div class="screen">
+    <div class="stage">
+      <div class="act-name">${escapeAttr(item.name)}</div>
+      <div class="act-sub">${isInterval ? 'interval' : `act ${state.currentIndex+1} of ${state.structure.length}`}</div>
+      ${bigTimeHtml}
+      ${captionHtml}
+      ${secondaryHtml}
+      ${state.stopActive ? `<div class="stopped-banner">Show stopped — timers paused</div>` : ''}
+      ${callsHtml}
+      ${timersHtml}
+    </div>
+
+    <div class="action-stack">
+      ${!isInterval ? `<button class="btn btn-outline muted" data-action="startTimer">+ Start a Timer</button>` : ''}
+      <button class="btn btn-outline" data-action="openPreview">Show Times</button>
+
+      ${isInterval ? `
+        <div class="safe-toggle">
+          <div class="lbl">Interval Safe Mode<span class="sub">Keep screen awake, lock accidental taps</span></div>
+          <div class="switch ${state.safeMode?'on':''}" data-action="toggleSafe"></div>
+        </div>
+      ` : ''}
+
+      ${safeLocked
+        ? `<button class="btn btn-outline amber" data-action="unlockSafe">Unlock to End Interval</button>`
+        : `<button class="btn btn-amber" data-action="advance">${advanceLabel}</button>`
+      }
+    </div>
+  </div>
+  ${state.showModal==='preview' ? modalPreview() : ''}
+  `;
+}
+
+function modalPreview(){
+  const t = computeTotals();
+  return `
+  <div class="overlay" data-action="closeModalBg">
+    <div class="modal" data-stop="1">
+      <div class="modal-handle"></div>
+      <h2>Show Times</h2>
+      <div class="totals-grid">
+        <div class="total-card"><div class="tv">${fmtClock(t.running)}</div><div class="tl">Running Time</div></div>
+        <div class="total-card"><div class="tv">${fmtClock(t.playing)}</div><div class="tl">Playing Time</div></div>
+        <div class="total-card"><div class="tv">${fmtClock(t.intervalTime)}</div><div class="tl">Interval Time</div></div>
+        <div class="total-card"><div class="tv">${t.stopTime>0?fmtClock(t.stopTime):'—'}</div><div class="tl">Show Stop Time</div></div>
+      </div>
+      <div class="report-block">
+        <div class="rb-title">Breakdown</div>
+        ${state.structure.map((item,i)=>{
+          const ev = state.events[i];
+          if(!ev) return `<div class="report-line"><span class="rl-name" style="color:var(--muted-dim)">${escapeAttr(item.name)}</span><span class="rl-time">—</span></div>`;
+          const dur = ((ev.end??nowMs())-ev.start)/1000 - stopDurationSoFar(ev);
+          return `<div class="report-line"><span class="rl-name">${escapeAttr(item.name)}</span><span class="rl-time">${fmtClock(roundSeconds(dur))}</span></div>`;
+        }).join('')}
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" data-action="closeModal" style="flex:1">Close</button>
+        <button class="btn btn-primary" data-action="copyReport" style="flex:1">Copy Times</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function screenReport(){
+  const t = computeTotals();
+  return `
+  <div class="topbar"><span class="brand">Show StopWatch</span></div>
+  <div class="screen">
+    <h1 class="marquee">Show Complete</h1>
+    <div class="subtitle">Nice work. Here's tonight's report.</div>
+    <div class="totals-grid">
+      <div class="total-card"><div class="tv">${fmtClock(t.running)}</div><div class="tl">Running Time</div></div>
+      <div class="total-card"><div class="tv">${fmtClock(t.playing)}</div><div class="tl">Playing Time</div></div>
+      <div class="total-card"><div class="tv">${fmtClock(t.intervalTime)}</div><div class="tl">Interval Time</div></div>
+      <div class="total-card"><div class="tv">${t.stopTime>0?fmtClock(t.stopTime):'—'}</div><div class="tl">Show Stop Time</div></div>
+    </div>
+    <div class="report-block">
+      <div class="rb-title">Breakdown</div>
+      ${state.structure.map((item,i)=>{
+        const ev = state.events[i];
+        if(!ev) return '';
+        const dur = ((ev.end??nowMs())-ev.start)/1000 - stopDurationSoFar(ev);
+        return `<div class="report-line"><span class="rl-name">${escapeAttr(item.name)}</span><span class="rl-time">${fmtClock(roundSeconds(dur))}</span></div>`;
+      }).join('')}
+    </div>
+    <div class="action-stack">
+      <div class="btn-row">
+        <button class="btn btn-outline" data-action="copyReport" style="flex:1">Copy Report</button>
+        <button class="btn btn-outline" data-action="shareReport" style="flex:1">Share</button>
+      </div>
+      <button class="btn btn-primary" data-action="saveAndNew">Save &amp; Start New Show</button>
+      <button class="btn btn-ghost" data-action="openHistory">Previous performances</button>
+    </div>
+  </div>`;
+}
+
+function screenHistory(){
+  let hist = [];
+  try{ hist = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){}
+  return `
+  <div class="topbar"><span class="brand">Show StopWatch</span></div>
+  <div class="screen">
+    <h1 class="marquee">Previous Performances</h1>
+    <div class="subtitle">Tap a show to review its report.</div>
+    ${hist.length===0 ? `<div class="empty-note">No saved shows yet.</div>` : hist.map((rec,i)=>`
+      <div class="history-item" data-history="${i}">
+        <div class="hd">${new Date(rec.date).toLocaleDateString([], {weekday:'short', day:'numeric', month:'short'})}
+          <div class="sub">Running ${fmtClock(rec.running)} · Playing ${fmtClock(rec.playing)}</div>
+        </div>
+        <span class="harrow">›</span>
+      </div>
+    `).join('')}
+    <div class="action-stack" style="margin-top:20px;">
+      <button class="btn btn-outline" data-action="backOrSetup">← Back</button>
+    </div>
+  </div>`;
+}
+
+function escapeAttr(str){
+  return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+/* ================= EVENT WIRING ================= */
+function attachHandlers(){
+  const app = document.getElementById('app');
+
+  app.querySelectorAll('[data-action]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      const action = el.getAttribute('data-action');
+      if(el.hasAttribute('disabled')) return;
+      handleAction(action, el, e);
+    });
+  });
+  app.querySelectorAll('[data-add]').forEach(el=>{
+    el.addEventListener('click', ()=> addRow(el.getAttribute('data-add')));
+  });
+  app.querySelectorAll('[data-remove]').forEach(el=>{
+    el.addEventListener('click', ()=> removeRow(el.getAttribute('data-remove')));
+  });
+  app.querySelectorAll('[data-move]').forEach(el=>{
+    el.addEventListener('click', ()=> moveRow(el.getAttribute('data-id'), parseInt(el.getAttribute('data-move'))));
+  });
+  app.querySelectorAll('input[data-field]').forEach(el=>{
+    el.addEventListener('input', ()=> updateRow(el.getAttribute('data-id'), el.getAttribute('data-field'), el.value));
+    el.addEventListener('click', e=>e.stopPropagation());
+  });
+  app.querySelectorAll('[data-stoptimer]').forEach(el=>{
+    el.addEventListener('click', ()=> stopTimer(el.getAttribute('data-stoptimer')));
+  });
+  app.querySelectorAll('[data-history]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      let hist = [];
+      try{ hist = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){}
+      const rec = hist[parseInt(el.getAttribute('data-history'))];
+      if(rec) viewHistoryItem(rec);
+    });
+  });
+  const modalEl = app.querySelector('.modal');
+  if(modalEl) modalEl.addEventListener('click', e=>e.stopPropagation());
+}
+
+function handleAction(action){
+  switch(action){
+    case 'goPreshow': goToPreshow(); break;
+    case 'houseOpen': markHouseOpen(); break;
+    case 'clearance': markClearance(); break;
+    case 'startShow': startShowProper(); break;
+    case 'backToSetup': backToSetup(); break;
+    case 'toggleStop': toggleShowStop(); break;
+    case 'startTimer': startTimer(); break;
+    case 'openPreview': openPreview(); break;
+    case 'closeModal': closeModal(); break;
+    case 'closeModalBg': closeModal(); break;
+    case 'copyReport': copyReport(); break;
+    case 'shareReport': shareReport(); break;
+    case 'toggleSafe': toggleSafeMode(); break;
+    case 'unlockSafe': unlockSafe(); break;
+    case 'advance': advance(); break;
+    case 'saveAndNew': saveToHistory(); newShow(); break;
+    case 'openHistory': openHistory(); break;
+    case 'backOrSetup': state.screen = state.events.length ? 'report' : 'setup'; render(); break;
+  }
+}
+
+function manageTicker(){
+  clearInterval(tickHandle);
+  if(state.screen==='running'){
+    tickHandle = setInterval(()=>{
+      // lightweight re-render of just the timer bits by re-rendering whole running screen
+      const app = document.getElementById('app');
+      app.innerHTML = renderScreen();
+      attachHandlers();
+    }, 500);
+  }
+}
+
+render();
+</script>
+</body>
+</html>
